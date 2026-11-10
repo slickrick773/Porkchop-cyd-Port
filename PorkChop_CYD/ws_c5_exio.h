@@ -6,6 +6,14 @@
 //
 // Call ws_c5_exio_begin() ONCE, BEFORE tft.begin(): it opens the shared I2C
 // bus, powers the panel rail, then pulses the LCD and touch resets.
+//
+// The backlight is left OFF. Call ws_c5_exio_backlight() only after the first
+// full frame has been drawn, and about 150 ms after that: the glass lags
+// behind the panel's memory. The panel keeps its own memory: random data after
+// power-on, the previous picture after a reset. Lighting the backlight before
+// the first frame is written shows that memory as "TV static" or a ghost of
+// the last screen. Characterised in the ESP32-C5-BSP project ("Clean startup"
+// in its 3.5-inch board notes).
 #pragma once
 #ifndef PORKCHOP_WS_C5_EXIO_H
 #define PORKCHOP_WS_C5_EXIO_H
@@ -77,10 +85,15 @@ static bool ws_c5_exio_begin() {
   ok = ok && ws_exio_set(WS_EXIO_LCD_RST, true);  delay(120);
   ok = ok && ws_exio_set(WS_EXIO_TP_RST, false);  delay(20);
   ok = ok && ws_exio_set(WS_EXIO_TP_RST, true);   delay(300);  // FT6336 boot
-  ok = ok && ws_exio_write(WS_EXIO_PWM_REG, 0xFF);  // backlight full
+  // Backlight stays at 0 here; see ws_c5_exio_backlight().
   ws_exio_ready = ok;
   Serial.printf("[WS-C5] I/O expander 0x24 %s\n", ok ? "ready" : "NOT FOUND");
   return ok;
+}
+
+// Backlight duty, 0 (off) .. 255 (full). Call after the first full frame.
+static bool ws_c5_exio_backlight(uint8_t duty) {
+  return ws_exio_ready && ws_exio_write(WS_EXIO_PWM_REG, duty);
 }
 
 #endif // PORKCHOP_WS_C5_EXIO_H

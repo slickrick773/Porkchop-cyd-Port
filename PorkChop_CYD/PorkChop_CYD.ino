@@ -13016,6 +13016,8 @@ static void coldBlueMain() {
       (tft.width() - scale * PIG_SPRITE_W) / 2,
       (tft.height() - scale * PIG_SPRITE_H) / 2,
       scale, PIG_SPRITE_W, PIG_SPRITE_H);
+  delay(150);                  // let the glass catch up with the drawn image
+  ws_c5_exio_backlight(255);   // then light the panel
   pbble::heapProbe("bridge-image");
   const bool buffersReady = initBridgeScanBuffers();
   if (buffersReady) pbble::setApProvider(coldRealProvider);
@@ -13091,12 +13093,19 @@ void setup() {
   pinMode(LED_B_PIN,OUTPUT); digitalWrite(LED_B_PIN,HIGH);
 
   // I/O expander (0x24) FIRST: opens the I2C bus, powers the panel rail, and
-  // pulses the LCD + touch resets. Backlight is switched on here too — there
-  // is no backlight GPIO on this board. MUST run before tft.begin().
+  // pulses the LCD + touch resets. The backlight stays off until the
+  // first frame is drawn (there is no backlight GPIO; it is on the expander).
+  // MUST run before tft.begin().
   ws_c5_exio_begin();
 
   // TFT
   tft.begin(); tft.setRotation(3); tft.fillScreen(TFT_BLACK);  // rotation 3 = default landscape for the C5 build
+  // The panel's memory now holds a complete black frame, but the glass lags
+  // behind it: lit immediately, the old contents (static after power-on, the
+  // last screen after a reset) were still visible for about 0.1 s on video.
+  // Give the panel time to catch up, then light it.
+  delay(150);
+  ws_c5_exio_backlight(255);
 
   // SD init — share the ST7796's own SPI bus instance (tft.getSPIinstance()).
   // The bus is already up from tft.begin(); SD just adds CS 9. Do NOT begin a
